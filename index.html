@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Naoki — developer & motion designer</title>
+<meta name="description" content="Engineering student building web apps, Android tools, and stream widgets.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ===== Color tokens (light first, dark below) ===== */
+  :root {
+    color-scheme: light;
+    --bg: #F4EEFB;
+    --surface: #FFFFFF;
+    --ink: #24183A;
+    --muted: #6B5A86;
+    --violet: #7B3FE4;
+    --pink: #D6409A;
+    --line: #DCCFEE;
+    --reticle: rgba(123, 63, 228, .55);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #17111F;
+      --surface: #221932;
+      --ink: #EDE6F7;
+      --muted: #A898BF;
+      --violet: #B98CFF;
+      --pink: #FF9AD5;
+      --line: #3A2C52;
+      --reticle: rgba(185, 140, 255, .6);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #17111F;
+    --surface: #221932;
+    --ink: #EDE6F7;
+    --muted: #A898BF;
+    --violet: #B98CFF;
+    --pink: #FF9AD5;
+    --line: #3A2C52;
+    --reticle: rgba(185, 140, 255, .6);
+  }
+
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-behavior: smooth; scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 1.0625rem/1.6 "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  a { color: var(--violet); }
+  :focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; border-radius: 4px; }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 1.5rem; }
+  h1, h2, h3 { font-family: "Unbounded", "Figtree", system-ui, sans-serif; line-height: 1.1; margin: 0; }
+  h2 { font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 700; margin-bottom: .5rem; }
+  .lede { color: var(--muted); max-width: 60ch; margin: 0 0 2.5rem; }
+  section { padding: 5.5rem 0; border-top: 1px solid var(--line); }
+
+  /* ===== Top bar ===== */
+  .top { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 0; }
+  .logo { font-family: "Unbounded", sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--ink); text-decoration: none; }
+  .top nav { display: flex; gap: 1.25rem; align-items: center; }
+  .top nav a { color: var(--muted); text-decoration: none; font-weight: 500; }
+  .top nav a:hover { color: var(--ink); }
+  .theme-btn {
+    background: none; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 999px; padding: .35rem .8rem; font: inherit; font-size: .9rem; cursor: pointer;
+  }
+  @media (max-width: 640px) { .top nav a { display: none; } }
+
+  /* ===== Hero with the dangerous duck ===== */
+  .hero { position: relative; min-height: 78vh; display: flex; align-items: center; overflow: hidden; }
+  .hero-text { position: relative; z-index: 2; }
+  .hero h1 {
+    font-size: clamp(3rem, 11vw, 7.5rem); font-weight: 800; letter-spacing: -.02em;
+    margin-bottom: 1.25rem;
+  }
+  .hero p { font-size: clamp(1.1rem, 2.4vw, 1.35rem); max-width: 34ch; margin: 0 0 2rem; color: var(--muted); }
+  .hero p strong { color: var(--ink); font-weight: 600; }
+  .btns { display: flex; flex-wrap: wrap; gap: .75rem; }
+  .btn {
+    display: inline-block; padding: .8rem 1.4rem; border-radius: 999px; font-weight: 600;
+    text-decoration: none; border: 2px solid var(--violet);
+  }
+  .btn.primary { background: var(--violet); color: var(--bg); }
+  .btn.ghost { color: var(--violet); }
+  .btn:hover { transform: translateY(-1px); }
+
+  /* the dangerous duck */
+  .duck {
+    position: absolute; z-index: 1; top: 0; left: 0; width: 170px; height: 146px;
+    pointer-events: none; will-change: transform;
+  }
+  .duck svg { width: 100%; height: 100%; display: block; transform-origin: 50% 90%; }
+  .duck.left svg { transform: scaleX(-1); }
+  .duck.walking svg { animation: waddle .3s ease-in-out infinite alternate; }
+  .duck.left.walking svg { animation-name: waddle-left; }
+  @keyframes waddle { from { transform: rotate(-6deg); } to { transform: rotate(6deg) translateY(-3px); } }
+  @keyframes waddle-left { from { transform: scaleX(-1) rotate(-6deg); } to { transform: scaleX(-1) rotate(6deg) translateY(-3px); } }
+  @media (prefers-reduced-motion: reduce) { .duck.walking svg { animation: none; } }
+
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  html, body { height: auto; }
+
+  /* ===== Work tabs ===== */
+  .tabs-bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--bg); padding: .9rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .tabs { display: flex; gap: .4rem; padding: .3rem; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; width: fit-content; max-width: 100%; }
+  .tab {
+    flex: 1; white-space: nowrap; padding: .6rem 1.2rem; border-radius: 999px; border: 0; background: none;
+    color: var(--muted); font: 600 .95rem/1 "Figtree", system-ui, sans-serif; cursor: pointer;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--violet); color: var(--bg); }
+  @media (max-width: 480px) { .tabs { width: 100%; } .tab { padding: .6rem .5rem; } }
+  .panel { padding: 3rem 0 4.5rem; border-top: 0; }
+  .panel[hidden] { display: none; }
+  .tools { margin-top: 2.5rem; color: var(--muted); font-size: .95rem; }
+  .tools b { color: var(--violet); font-weight: 600; margin-right: .4rem; }
+  .contact { border-top: 1px solid var(--line); }
+
+  /* ===== Projects ===== */
+  .project {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 2rem;
+    padding: 2rem 0; border-bottom: 1px dashed var(--line);
+  }
+  .project:last-child { border-bottom: 0; }
+  .project h3 { font-size: 1.35rem; font-weight: 700; }
+  .project .status { display: inline-block; margin-top: .6rem; font-size: .85rem; color: var(--pink); font-weight: 600; }
+  .project p { margin: 0 0 1rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0 0 1rem; list-style: none; }
+  .tags li { font-size: .85rem; padding: .2rem .65rem; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+  .project a { font-weight: 600; }
+  @media (max-width: 720px) { .project { grid-template-columns: 1fr; gap: .75rem; } }
+
+  /* ===== Stream package showcase ===== */
+  .feature-head { margin-bottom: 1.25rem; }
+  .feature-head h3 { font-size: 1.35rem; font-weight: 700; }
+  .feature-head p { margin: .35rem 0 0; color: var(--muted); }
+  .scenes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .scene-btn {
+    padding: .5rem 1rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); font: 600 .9rem/1 "Figtree", system-ui, sans-serif; cursor: pointer;
+  }
+  .scene-btn[aria-pressed="true"] { border-color: var(--violet); color: var(--ink); box-shadow: inset 0 0 0 1px var(--violet); }
+  .stage { position: relative; aspect-ratio: 16 / 9; width: 100%; border-radius: 14px; overflow: hidden; background: #120a0d; }
+  .stage video, .stage img, .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .stage video { object-fit: cover; }
+  .stage iframe { color-scheme: normal; background: transparent; pointer-events: none; }
+  .stage .sound {
+    position: absolute; right: .6rem; bottom: .6rem; z-index: 3; padding: .4rem .75rem; border-radius: 999px;
+    border: 0; background: rgba(0,0,0,.6); color: #fff; font: 600 .8rem/1 "Figtree", system-ui, sans-serif; cursor: pointer;
+  }
+  .stage .sound[hidden] { display: none; }
+  .caption { color: var(--muted); font-size: .95rem; margin: .75rem 0 0; min-height: 3em; }
+  .package { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; margin-top: 2.5rem; }
+  @media (max-width: 780px) { .package { grid-template-columns: 1fr; gap: 1.5rem; } }
+  .package h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .75rem; color: var(--violet); }
+  .package ul { padding-left: 1.2rem; margin: 0; }
+  .package li { margin-bottom: .45rem; }
+  .package p { margin: 0 0 1rem; }
+
+  /* ===== Motion ===== */
+  .reel {
+    aspect-ratio: 16 / 9; width: 100%; border-radius: 14px; border: 2px dashed var(--line);
+    display: grid; place-items: center; text-align: center; color: var(--muted); background: var(--surface);
+    padding: 1rem;
+  }
+  .reel iframe { width: 100%; height: 100%; border: 0; border-radius: 12px; }
+
+  /* ===== Toolkit ===== */
+  .kit { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; }
+  .kit h3 { font-size: 1rem; font-weight: 700; margin-bottom: .75rem; color: var(--violet); }
+  .kit p { margin: 0; color: var(--muted); }
+
+  /* ===== Contact ===== */
+  .contact h2 { font-size: clamp(2rem, 6vw, 3.6rem); font-weight: 800; margin-bottom: 1rem; }
+  .contact .mail { font-family: "Unbounded", sans-serif; font-size: clamp(1.1rem, 3.5vw, 1.7rem); font-weight: 700; color: var(--pink); text-decoration: none; overflow-wrap: anywhere; }
+  .contact .mail:hover { text-decoration: underline; }
+  .links { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 2rem; }
+  .links a { color: var(--muted); font-weight: 500; }
+  footer { padding: 2rem 0 3rem; color: var(--muted); font-size: .9rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="logo" href="#">naoki</a>
+    <nav>
+      <a href="#vtuber">VTuber</a>
+      <a href="#code">Code</a>
+      <a href="#mg">Motion</a>
+      <a href="#contact">Contact</a>
+      <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch color theme">Light / dark</button>
+    </nav>
+  </header>
+</div>
+
+<!-- HERO: the duck chases your mouse (or wanders on its own on phones) -->
+<div class="hero" id="hero">
+  <div class="duck" id="duck" aria-hidden="true">
+    <svg viewBox="0 0 140 120" fill="none" stroke="#24183A" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M48 103l-7 9h15zM70 103l-5 9h15z" fill="#FF9A3C"/>
+      <path d="M25 64l-13-13 17 3" fill="#FFE27A"/>
+      <path d="M22 70c0-14 14-24 34-24h14c10 0 18 8 18 20 0 18-16 36-40 36-16 0-26-12-26-32z" fill="#FFE27A"/>
+      <path d="M36 72c8-7 22-7 30 1-6 11-20 13-30-1z" fill="#F5C842"/>
+      <circle cx="86" cy="40" r="20" fill="#FFE27A"/>
+      <path d="M68 33c10-9 26-9 36 0l-2 7c-10-6-22-6-32 0z" fill="#B98CFF"/>
+      <path d="M69 36l-15-5 7 8-9 6 15-3z" fill="#B98CFF"/>
+      <circle cx="93" cy="45" r="3.2" fill="#24183A" stroke="none"/>
+      <path d="M86 38l12 4"/>
+      <path d="M103 45c9-2 16 0 18 5-4 5-11 6-19 3z" fill="#FF9A3C"/>
+      <path d="M99 55l11-6 2 4-11 6z" fill="#7B3FE4"/>
+      <path d="M111 50l26-15-3 7-21 11z" fill="#E8E8F0"/>
+    </svg>
+  </div>
+  <div class="wrap hero-text">
+    <h1>Hi, I'm Naoki.</h1>
+    <p>I build <strong>web apps, Android tools, and stream widgets</strong>. Engineering student by day, After Effects animator by night.</p>
+    <div class="btns">
+      <a class="btn primary" href="#vtuber">See my work</a>
+      <a class="btn ghost" href="#contact">Work with me</a>
+    </div>
+  </div>
+</div>
+
+<main>
+  <!-- WORK TABS: VTuber is the default. Links like yoursite/#code open a tab directly. -->
+  <div class="tabs-bar" id="work">
+    <div class="wrap">
+      <div class="tabs" role="tablist" aria-label="Choose what to see">
+        <button class="tab" role="tab" id="tab-vtuber" aria-controls="panel-vtuber" aria-selected="true">VTuber</button>
+        <button class="tab" role="tab" id="tab-code" aria-controls="panel-code" aria-selected="false" tabindex="-1">Code</button>
+        <button class="tab" role="tab" id="tab-mg" aria-controls="panel-mg" aria-selected="false" tabindex="-1">Motion graphics</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+  <!-- VTUBER: Marble's stream package, with the real chat overlays running in demo mode -->
+  <section class="panel" id="panel-vtuber" role="tabpanel" aria-labelledby="tab-vtuber">
+    <h2>Stream packages</h2>
+    <p class="lede">Full stream setups for VTubers: animated scenes, a transition, and a chat and HUD system that runs across Twitch and YouTube at once.</p>
+
+    <div class="feature-head">
+      <h3>Marble Arcadia XII</h3>
+      <p>A time-traveling homunculus. Gold, deep red, and clocks that don't behave.</p>
+    </div>
+
+    <div class="scenes" role="group" aria-label="Choose a scene">
+      <button class="scene-btn" data-scene="starting" aria-pressed="true">Starting soon</button>
+      <button class="scene-btn" data-scene="chatting" aria-pressed="false">Just chatting</button>
+      <button class="scene-btn" data-scene="break" aria-pressed="false">Break</button>
+      <button class="scene-btn" data-scene="stinger" aria-pressed="false">Transition</button>
+    </div>
+    <div class="stage" id="stage">
+      <video id="sceneVideo" muted loop playsinline autoplay preload="metadata"></video>
+      <img id="sceneDesk" src="assets/marble/desk.png" alt="" hidden>
+      <iframe id="sceneChat" title="Live chat overlay demo" loading="lazy" tabindex="-1"></iframe>
+      <button class="sound" id="soundBtn" type="button" hidden>Sound on</button>
+    </div>
+    <p class="caption" id="sceneCaption"></p>
+
+    <div class="package">
+      <div>
+        <h3>What's in the package</h3>
+        <ul>
+          <li>One chat feed for Twitch and YouTube, restyled for every scene</li>
+          <li>A HUD with alerts, a wind gauge, and an info ticker</li>
+          <li>Chat games, duels, ranks, and time attacks, run by a custom C# engine in Streamer.bot</li>
+          <li>An end-of-stream ledger and a credits roll built from that stream's chat</li>
+          <li>Animated scene loops and a pocket-watch stinger</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Want one?</h3>
+        <p>Every package is built around your model, colors, and lore, and the overlays drop straight into OBS as browser sources.</p>
+        <a href="#contact">Ask about a stream package</a>
+      </div>
+    </div>
+    <p class="tools"><b>Tools</b>HTML, CSS, JavaScript, C#, Streamer.bot, OBS</p>
+  </section>
+
+  <!-- CODE: edit titles, text, tags, and links -->
+  <section class="panel" id="panel-code" role="tabpanel" aria-labelledby="tab-code" hidden>
+    <h2>Projects</h2>
+    <p class="lede">Things I've built for school, for work, and for myself.</p>
+
+    <article class="project">
+      <div><h3>Inventory Audit Web App</h3></div>
+      <div>
+        <p>A team web app for running inventory audits: tracking stock, logging counts, and flagging mismatches. <!-- EDIT: what YOU built on it --></p>
+        <ul class="tags"><li>Web app</li><li>Team project</li><li>Stack goes here</li></ul>
+        <a href="#">View on GitHub</a>
+      </div>
+    </article>
+
+    <article class="project">
+      <div><h3>Table Management System</h3></div>
+      <div>
+        <p>A PC-hosted server with an Android app so staff can manage tables and orders from their phones. <!-- EDIT --></p>
+        <ul class="tags"><li>Android</li><li>Local server</li><li>Stack goes here</li></ul>
+        <a href="#">View on GitHub</a>
+      </div>
+    </article>
+
+    <article class="project">
+      <div>
+        <h3>Self-help App</h3>
+        <span class="status">In progress</span>
+      </div>
+      <div>
+        <p>Tracks app usage on Windows and Android, locks distracting apps until tasks are done, and turns daily logging into a game. Includes a journal. <!-- EDIT --></p>
+        <ul class="tags"><li>Windows</li><li>Android</li><li>Stack goes here</li></ul>
+        <a href="#">Follow progress</a>
+      </div>
+    </article>
+    <p class="tools"><b>Tools</b>HTML, CSS, JavaScript, Android, Excel, AutoCAD <!-- EDIT: add your real languages --></p>
+  </section>
+
+  <!-- MOTION GRAPHICS: replace the placeholder with a YouTube embed -->
+  <section class="panel" id="panel-mg" role="tabpanel" aria-labelledby="tab-mg" hidden>
+    <h2>Motion graphics</h2>
+    <p class="lede">Edits, stingers, and animations made in After Effects. Clients get the editable project files, not just a render.</p>
+    <div class="reel">
+      <!-- Replace this whole line with your YouTube embed iframe, e.g.
+           <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="Motion reel" allowfullscreen></iframe> -->
+      <span>Reel coming soon</span>
+    </div>
+    <p class="tools"><b>Tools</b>After Effects, Premiere Pro</p>
+  </section>
+  </div>
+
+  <div class="wrap">
+  <!-- CONTACT -->
+  <section id="contact" class="contact">
+    <h2>Let's build something.</h2>
+    <p class="lede">Commissions, collabs, or coding work. Email is the fastest way to reach me.</p>
+    <a class="mail" href="mailto:you@example.com">you@example.com</a>
+    <div class="links">
+      <a href="#">GitHub</a>
+      <a href="#">YouTube: Nao Wants To Live</a> <!-- EDIT: paste your channel link -->
+      <a href="#">X / Twitter</a>
+      <a href="#">Ko-fi</a>
+    </div>
+  </section>
+  </div>
+</main>
+
+<footer class="wrap">© 2026 Naoki</footer>
+
+<script>
+  // ----- Work tabs (VTuber / Code / Motion graphics) -----
+  (function () {
+    const names = ["vtuber", "code", "mg"];
+    const tabs = names.map(n => document.getElementById("tab-" + n));
+    const bar = document.getElementById("work");
+
+    function select(name, focus) {
+      names.forEach((n, i) => {
+        const on = n === name;
+        tabs[i].setAttribute("aria-selected", on);
+        tabs[i].tabIndex = on ? 0 : -1;
+        document.getElementById("panel-" + n).hidden = !on;
+      });
+      if (focus) tabs[names.indexOf(name)].focus();
+    }
+    function fromHash(scroll) {
+      const name = location.hash.slice(1);
+      if (!names.includes(name)) return;
+      select(name);
+      if (scroll) bar.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => { select(names[i]); history.replaceState(null, "", "#" + names[i]); });
+      t.addEventListener("keydown", (e) => {
+        const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!d) return;
+        const n = names[(i + d + names.length) % names.length];
+        select(n, true); history.replaceState(null, "", "#" + n);
+      });
+    });
+    // Nav and hero links to #vtuber / #code / #mg open that tab and scroll to it
+    document.querySelectorAll('a[href="#vtuber"], a[href="#code"], a[href="#mg"]').forEach(a => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        history.replaceState(null, "", a.getAttribute("href"));
+        fromHash(true);
+      });
+    });
+    addEventListener("hashchange", () => fromHash(true));
+    fromHash(false);
+  })();
+
+  // ----- Theme toggle -----
+  (function () {
+    const root = document.documentElement;
+    try { const saved = localStorage.getItem("theme"); if (saved) root.dataset.theme = saved; } catch (e) {}
+    document.getElementById("themeBtn").addEventListener("click", () => {
+      const current = root.dataset.theme ||
+        (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const next = current === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) {}
+    });
+  })();
+
+  // ----- The dangerous duck chases the pointer -----
+  (function () {
+    const hero = document.getElementById("hero");
+    const duck = document.getElementById("duck");
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const w = 170, h = 146;
+    let tx = 0, ty = 0, x = 0, y = 0, lastMove = 0;
+
+    function center() {
+      const r = hero.getBoundingClientRect();
+      tx = r.width * 0.68; ty = r.height * 0.5; x = tx; y = ty;
+    }
+    center();
+    addEventListener("resize", center);
+
+    function place() { duck.style.transform = `translate(${x - w / 2}px, ${y - h / 2}px)`; }
+    place();
+    if (reduce) return;
+
+    hero.addEventListener("pointermove", (e) => {
+      const r = hero.getBoundingClientRect();
+      tx = e.clientX - r.left; ty = e.clientY - r.top; lastMove = performance.now();
+    });
+
+    function tick(t) {
+      if (t - lastMove > 2500) {           // idle: drift around slowly
+        const r = hero.getBoundingClientRect();
+        tx = r.width * (0.62 + Math.sin(t / 2200) * 0.18);
+        ty = r.height * (0.5 + Math.cos(t / 1700) * 0.2);
+      }
+      const dx = (tx - x) * 0.06, dy = (ty - y) * 0.06;   // slower than the cursor, so it chases
+      x += dx; y += dy;
+      if (Math.abs(dx) > 0.3) duck.classList.toggle("left", dx < 0);
+      duck.classList.toggle("walking", Math.hypot(dx, dy) > 0.6);
+      place();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+
+  // ----- Stream package scene viewer -----
+  (function () {
+    const base = "assets/marble/";
+    const scenes = {
+      starting: { video: "starting", chat: "homunculus-chat-starting.html",
+        caption: "Starting soon: chat runs like subtitles under the title while the clock winds up." },
+      chatting: { video: "chatting", chat: "homunculus-chat-room.html", desk: true,
+        caption: "Just chatting: the model sits behind the interrogation desk, with chat in a column on the right." },
+      break:    { video: "break", chat: "homunculus-chat-break.html", sound: true,
+        caption: "Break: a 12-second horror loop, and chat arrives scrambled and flickering." },
+      stinger:  { video: "stinger", sound: true,
+        caption: "Transition: the pocket-watch stinger that plays between scenes." }
+    };
+    const video = document.getElementById("sceneVideo");
+    const desk = document.getElementById("sceneDesk");
+    const chat = document.getElementById("sceneChat");
+    const soundBtn = document.getElementById("soundBtn");
+    const caption = document.getElementById("sceneCaption");
+    const btns = document.querySelectorAll(".scene-btn");
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function show(name) {
+      const sc = scenes[name];
+      btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.scene === name));
+      video.muted = true; soundBtn.textContent = "Sound on";
+      video.poster = base + sc.video + ".jpg";
+      video.src = base + sc.video + ".mp4";
+      if (!reduce) video.play().catch(() => {});
+      desk.hidden = !sc.desk;
+      chat.hidden = !sc.chat;
+      chat.src = sc.chat ? base + "overlay/" + sc.chat + "?demo=1" : "about:blank";
+      soundBtn.hidden = !sc.sound;
+      caption.textContent = sc.caption;
+    }
+    btns.forEach(b => b.addEventListener("click", () => show(b.dataset.scene)));
+    soundBtn.addEventListener("click", () => {
+      video.muted = !video.muted;
+      soundBtn.textContent = video.muted ? "Sound on" : "Sound off";
+      if (video.paused) video.play().catch(() => {});
+    });
+    if (reduce) { video.removeAttribute("autoplay"); video.controls = true; }
+    show("starting");
+  })();
+</script>
+</body>
+</html>

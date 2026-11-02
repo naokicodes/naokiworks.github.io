@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Homunculus chat, Just Chatting (Streamer.bot)</title>
+<!--
+  Just Chatting: Browser source, 1920 x 1080, Local file, no transform. Sits on the right, clear of the corner ornaments.
+  Homunculus chat for OBS, powered by Streamer.bot (Twitch + YouTube in one feed).
+  One-time setup: edit CONFIG below (or add ?key=value to the URL), add as a Browser Source in OBS.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Text:wght@600;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Streamer.bot client (MIT): local copy first, CDN as a fallback -->
+<script src="streamerbot-client.js"></script>
+<script>window.StreamerbotClient || document.write('<script src="https://cdn.jsdelivr.net/npm/@streamerbot/client@1.9.5/dist/streamerbot-client.js"><\/script>');</script>
+<style>
+:root { --bone: #f2eeee; --ash: #b9b1b3; --gold: #dbb05c; --red: #b3192f; --red-hi: #ff8f9b;
+        --name-size: 21px; --text-size: 20px; --emote-size: 28px; }
+* { box-sizing: border-box; margin: 0; }
+html, body { background: transparent; overflow: hidden; width: 100%; height: 100%; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+#log { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.msg { --role: var(--gold); position: relative; flex: none; color: var(--bone);
+  opacity: calc(1 - var(--age, 0) * .1); transition: opacity .6s; animation: rewind .42s steps(7, end) both;
+  /* no card: the text carries its own shadow so it reads on any background */
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9); }
+.msg.mod { --role: var(--red-hi); } .msg.member { --role: var(--bone); }
+.msg.leaving { animation: leave .5s ease-in forwards; }
+.meta { display: inline-flex; align-items: center; gap: 8px; }
+.meta::before { content: ""; width: 7px; height: 7px; transform: rotate(45deg); background: var(--role); flex: none; box-shadow: 0 0 6px rgba(0,0,0,.8); }
+.platform { width: 16px; height: 16px; flex: none; border-radius: 3px; }
+.name { font-family: "Big Shoulders Stencil Text", "Arial Narrow", Impact, sans-serif; font-weight: 800; font-size: var(--name-size);
+        letter-spacing: .04em; color: var(--role); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.text { font-family: "Barlow", "Segoe UI", Arial, sans-serif; font-weight: 500; font-size: var(--text-size); line-height: 1.35; overflow-wrap: anywhere; }
+.text .amount { display: inline-block; margin-right: 8px; padding: 0 7px; border-radius: 3px; background: var(--red); color: #fff; font-weight: 600; text-shadow: none; }
+.emote { height: var(--emote-size); vertical-align: middle; margin: 0 1px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); }
+.text.emote-only .emote { height: calc(var(--emote-size) * 1.7); }
+.action .text { font-style: italic; }
+#status { position: absolute; font: 600 13px "Barlow", Arial, sans-serif; color: var(--ash); }
+@keyframes rewind { 0% { opacity: 0; transform: translateX(-16px) skewX(-8deg); } 35% { opacity: 1; transform: translateX(7px) skewX(4deg); }
+  60% { transform: translateX(-3px); } 100% { transform: none; } }
+@keyframes leave { to { opacity: 0; transform: translateX(-20px); } }
+@media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+
+#log { left: 1440px; top: 300px; width: 420px; height: 420px; gap: 14px;   /* ends above the interrogation desk */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 80px); mask-image: linear-gradient(to bottom, transparent 0, #000 80px); }
+.msg .text { margin-top: 3px; padding-left: 15px; }
+#status { left: 1440px; top: 730px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div id="log"></div><div id="status"></div></div>
+<script>
+/* ===================== ONE-TIME SETTINGS ===================== */
+const CONFIG = {
+  host: '127.0.0.1',        // Streamer.bot WebSocket Server address
+  port: 8080,               // ...and port
+  password: '',             // only if you turned on authentication in Streamer.bot
+  width: 360,               // chat width in px
+  limit: 8,                 // messages on screen
+  hideAfter: 0,             // seconds before a message fades out (0 = never)
+  hideCommands: true,       // hide messages starting with "!"
+  ignore: 'streamerbot, nightbot, streamelements, streamlabs',   // usernames to hide
+  showPlatform: true,       // small Twitch / YouTube icon before names
+  twitchIcon: 'https://static.twitchcdn.net/assets/favicon-32-e29e246c157142c94346.png',
+  youtubeIcon: 'https://www.youtube.com/favicon.ico',
+  customEmotes: '',         // ':name:=https://url, :other:=https://url'  (works on both platforms)
+  demo: false               // true = fake chat for previewing without Streamer.bot
+};
+/* ============================================================ */
+
+// URL parameters override CONFIG, e.g.  ...homunculus-chat.html?width=420&limit=7&demo=1
+new URLSearchParams(location.search).forEach((v, k) => {
+  if (!(k in CONFIG)) return;
+  const cur = CONFIG[k];
+  CONFIG[k] = typeof cur === 'number' ? Number(v) : typeof cur === 'boolean' ? /^(1|true|yes)$/i.test(v) : v;
+});
+document.documentElement.style.setProperty('--width', CONFIG.width + 'px');
+const IGNORED = CONFIG.ignore.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+const CUSTOM = {};
+CONFIG.customEmotes.split(',').forEach(p => { const i = p.indexOf('='); if (i > 0) CUSTOM[p.slice(0, i).trim().toLowerCase()] = p.slice(i + 1).trim(); });
+
+const stageEl = document.getElementById('stage');
+const fitStage = () => { stageEl.style.transform = `scale(${innerWidth / 1920})`; }; addEventListener('resize', fitStage); fitStage();
+const log = document.getElementById('log');
+const statusEl = document.getElementById('status');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function tear() {
+  const pts = ['0% 0%', (92 + Math.random() * 6) + '% 0%']; let y = 0;
+  while (y < 100) { y = Math.min(100, y + 8 + Math.random() * 14); pts.push((92 + Math.random() * 8) + '% ' + y + '%'); }
+  pts.push((90 + Math.random() * 8) + '% 100%', '0% 100%');
+  return 'polygon(' + pts.join(',') + ')';
+}
+const PIN = '<svg class="pin" viewBox="0 0 16 16"><line x1="3" y1="13" x2="13" y2="3" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="13" x2="11" y2="12" stroke-width="2" stroke-linecap="round"/><circle cx="3" cy="13" r="2"/></svg>';
+function clockSVG(d) {
+  const m = d.getMinutes(), h = (d.getHours() % 12) + m / 60;
+  const hand = (deg, len, w) => { const r = (deg - 90) * Math.PI / 180;
+    return `<line x1="8" y1="8" x2="${(8 + Math.cos(r) * len).toFixed(2)}" y2="${(8 + Math.sin(r) * len).toFixed(2)}" stroke-width="${w}" stroke-linecap="round"/>`; };
+  return `<svg class="clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.6" stroke-width="1.2"/>${hand(h * 30, 3.4, 1.6)}${hand(m * 6, 5, 1.1)}</svg>`;
+}
+
+// Emotes come with character positions; fall back to name matching. Custom :emotes: work everywhere.
+function renderText(text, emotes) {
+  text = String(text ?? '');
+  const list = (emotes || []).map(e => ({ name: e.name ?? e.Name, url: e.imageUrl ?? e.ImageUrl,
+                                          start: e.startIndex ?? e.StartIndex, end: e.endIndex ?? e.EndIndex }))
+                             .filter(e => e.url && e.name);
+  const byName = {}; list.forEach(e => byName[e.name] = e.url);
+  let words = 0;
+  const html = text.split(/(\s+)/).map(tok => {
+    if (!tok.trim()) return tok;
+    const url = byName[tok] || CUSTOM[tok.toLowerCase()];
+    if (url) return `<img class="emote" src="${esc(url)}" alt="${esc(tok)}">`;
+    words++; return esc(tok);
+  }).join('');
+  return { html, emoteOnly: words === 0 && text.trim() !== '' };
+}
+
+function addMessage({ name, text, emotes, role, platform, uid, msgId, isAction, amount }) {
+  if (!name) return;
+  if (CONFIG.hideCommands && String(text).trim().startsWith('!')) return;
+  if (IGNORED.includes(String(name).toLowerCase())) return;
+  const { html, emoteOnly } = renderText(text, emotes);
+  const el = document.createElement('div');
+  el.className = `msg ${role}${isAction ? ' action' : ''}`;
+  el.dataset.sender = uid || ''; el.dataset.msgid = msgId || '';
+  el.style.setProperty('--tear', tear());
+  const icon = platform === 'youtube' ? CONFIG.youtubeIcon : CONFIG.twitchIcon;
+  el.innerHTML =
+    `<div class="meta">${CONFIG.showPlatform && icon ? `<img class="platform" src="${esc(icon)}" alt="">` : ''}<span class="name">${esc(name)}</span></div>` +
+    `<p class="text${emoteOnly ? ' emote-only' : ''}">${amount ? `<span class="amount">${esc(amount)}</span>` : ''}${html}</p>`;
+  log.appendChild(el);
+  const all = [...log.children];
+  while (all.length > CONFIG.limit) all.shift().remove();
+  [...log.children].reverse().forEach((m, i) => m.style.setProperty('--age', i));
+  if (CONFIG.hideAfter > 0) setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 600); }, CONFIG.hideAfter * 1000);
+}
+
+// look for an id anywhere in an event payload (field names differ between Streamer.bot versions)
+function findId(obj, re, depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 3) return null;
+  for (const [k, v] of Object.entries(obj)) if (re.test(k) && (typeof v === 'string' || typeof v === 'number')) return String(v);
+  for (const v of Object.values(obj)) { const r = findId(v, re, depth + 1); if (r) return r; }
+  return null;
+}
+const removeWhere = (attr, val) => { if (val) document.querySelectorAll(`.msg[data-${attr}="${CSS.escape(val)}"]`).forEach(n => n.remove()); };
+const removeUser = data => removeWhere('sender', (data.user && data.user.id) || findId(data, /^(target)?user_?id$/i));
+
+/* ---------- Twitch ---------- */
+function twitchMessage(d) {
+  // Streamer.bot 1.0+ sends user/text/emotes at the top level; older versions nest them in d.message
+  const old = d.message && typeof d.message === 'object' ? d.message : null;
+  const user = d.user || {};
+  const badges = (user.badges || (old && old.badges) || []).map(b => String(b.name || '').toLowerCase());
+  const isMod = badges.includes('moderator') || badges.includes('broadcaster') || (user.role >= 3) || (old && old.role >= 3);
+  const isMember = user.subscribed || badges.includes('subscriber') || badges.includes('vip') || (old && old.subscriber);
+  addMessage({
+    name: user.name || (old && old.displayName),
+    text: d.text ?? (old && old.message),
+    emotes: d.emotes || (old && old.emotes),
+    role: isMod ? 'mod' : isMember ? 'member' : 'viewer',
+    platform: 'twitch',
+    uid: user.id || (old && old.userId),
+    msgId: d.messageId || (old && old.msgId),
+    isAction: (d.meta && d.meta.isMe) || (old && old.isMe)
+  });
+}
+
+/* ---------- YouTube ---------- */
+function youtubeMessage(d, amount) {
+  const u = d.user || {};
+  addMessage({
+    name: u.name, text: d.message, emotes: d.emotes,
+    role: (u.isOwner || u.isModerator) ? 'mod' : u.isSponsor ? 'member' : 'viewer',
+    platform: 'youtube', uid: u.id, msgId: d.eventId, amount
+  });
+}
+
+/* ---------- connect ---------- */
+function setStatus(t) { statusEl.textContent = t || ''; }
+if (CONFIG.demo) {
+  runDemo();
+} else if (typeof StreamerbotClient === 'undefined') {
+  setStatus('Could not load the Streamer.bot client (no internet?)');
+} else {
+  setStatus('Waiting for Streamer.bot…');
+  const client = new StreamerbotClient({
+    host: CONFIG.host, port: CONFIG.port, endpoint: '/',
+    ...(CONFIG.password ? { password: CONFIG.password } : {}),
+    onConnect: () => setStatus(''),
+    onDisconnect: () => setStatus('Waiting for Streamer.bot…')
+  });
+  client.on('Twitch.ChatMessage',        ({ data }) => twitchMessage(data));
+  client.on('Twitch.ChatMessageDeleted', ({ data }) => removeWhere('msgid', findId(data, /message_?id|msg_?id/i)));
+  client.on('Twitch.UserBanned',         ({ data }) => removeUser(data));
+  client.on('Twitch.UserTimedOut',       ({ data }) => removeUser(data));
+  client.on('Twitch.ChatCleared',        () => { log.innerHTML = ''; });
+  client.on('YouTube.Message',           ({ data }) => youtubeMessage(data));
+  client.on('YouTube.SuperChat',         ({ data }) => youtubeMessage(data, data.amount || (data.decimalAmount + ' ' + (data.currencyCode || ''))));
+  client.on('YouTube.MessageDeleted',    ({ data }) => removeWhere('msgid', findId(data, /message_?id|event_?id/i)));
+  client.on('YouTube.UserBanned',        ({ data }) => removeUser(data));
+  client.on('YouTube.UserTimedout',      ({ data }) => removeUser(data));
+}
+
+/* ---------- demo mode ---------- */
+function runDemo() {
+  const lines = [
+    () => twitchMessage({ user: { name: 'tin_soldier', id: 't1' }, text: 'the time keeper is LIVE', messageId: 'a' }),
+    () => twitchMessage({ user: { name: 'Ravel', id: 't2', role: 3, badges: [{ name: 'moderator' }] }, text: 'welcome in, recruits', messageId: 'b' }),
+    () => youtubeMessage({ user: { name: 'Mireille', id: 'y1', isSponsor: true }, message: 'that coat goes hard', eventId: 'c' }),
+    () => youtubeMessage({ user: { name: 'ashen_lark', id: 'y2' }, message: 'red eye or yellow eye, pick one', eventId: 'd' }),
+    () => twitchMessage({ user: { name: 'pip', id: 't3', subscribed: true }, text: 'he BLINKED i saw it', messageId: 'e' }),
+    () => youtubeMessage({ user: { name: 'Hollow Brass', id: 'y3', isSponsor: true }, message: 'for the clock!', eventId: 'f' }, '₱100.00'),
+    () => twitchMessage({ user: { name: 'quillfeather', id: 't4' }, text: 'Marble what time is it in your timeline', messageId: 'g' })
+  ];
+  let i = 0; const next = () => { lines[i++ % lines.length](); setTimeout(next, 1400 + Math.random() * 1600); };
+  next();
+}
+</script>
+</body>
+</html>
